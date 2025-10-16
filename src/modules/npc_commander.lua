@@ -2,6 +2,8 @@ require("src.core.utils")
 require("src.data.config")
 require("src.data.random_names")
 
+local events = require("src.core.events")
+
 local utils = require("src.core.utils")
 
 local _states = {
@@ -300,7 +302,7 @@ function onload()
         self.createButton(buttons[i])
     end
 
-    Global.call("subscribe", {eventName = "parse_monster_data", guid = self.getGUID(), functionName = "parseMonsterData"})
+    events.subscribe("parse_monster_data", "parseMonsterData")
 end
 
 function clear()
@@ -603,5 +605,5 @@ function create_json_note(obj, player_clicker_color, alt_click)
         boss_size = getBossSize()
     }
     local json = JSON.encode(vars)
-    Global.call("broadcast", {eventName = "create_json_note", args = {json}})
+    events.broadcast("create_json_note", json)
 end

@@ -1,6 +1,6 @@
 
+local events = require("src.core.events")
 local utils = require("src.core.utils")
-local npc_commander = require("src.modules.npc_commander")
 
 --[[StartXML
 <Defaults>
@@ -42,6 +42,6 @@ function setData()
 end
 
 function parse()
-    Global.call("broadcast", {eventName = "parse_monster_data", args = {self.getDescription()}})
+    events.broadcast("parse_monster_data", self.getDescription())
 end
 

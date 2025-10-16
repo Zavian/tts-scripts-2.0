@@ -76,12 +76,32 @@ function Utils.printTable(t)
 end
 
 -- Prints an error message to either the Black player (if seated) or to all players
-function Utils.error(msg, private)
-    if private and Utils.isColorSeated("Black") then
-        broadcastToColor(msg, "Black", CONFIG.palette.red.rgb)
-    else
-        broadcastToAll(msg, CONFIG.palette.red.rgb) 
+function Utils.error(msg, color_to_broadcast)
+    if not color_to_broadcast then
+        color_to_broadcast = Utils.getSeatedPlayers()[1]
     end
+    Player[color_to_broadcast].broadcast("✘ "..msg, CONFIG.palette.red.rgb)
+end
+
+function Utils.success(msg, color_to_broadcast)
+    if not color_to_broadcast then
+        color_to_broadcast = Utils.getSeatedPlayers()[1]
+    end
+    Player[color_to_broadcast].broadcast("✔ "..msg, CONFIG.palette.green.rgb)
+end
+
+function Utils.warning(msg, color_to_broadcast)
+    if not color_to_broadcast then
+        color_to_broadcast = Utils.getSeatedPlayers()[1]
+    end
+    Player[color_to_broadcast].broadcast("⚠ " ..msg, CONFIG.palette.yellow.rgb)
+end
+
+function Utils.info(msg, color_to_broadcast)
+    if not color_to_broadcast then
+        color_to_broadcast = Utils.getSeatedPlayers()[1]
+    end
+    Player[color_to_broadcast].broadcast("🛈 " ..msg, CONFIG.palette.aqua.rgb)
 end
 
 function Utils.findBlackName(name)
@@ -171,7 +191,6 @@ end
 
 -- Encodes a Lua table to JSON to save it in the GM notes, appending it
 function Utils.appendData(object, dataTable)
-    print('hi')
     local data = Utils.getData(object)
     for k, v in pairs(dataTable) do
         data[k] = v

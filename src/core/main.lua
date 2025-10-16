@@ -25,7 +25,7 @@ function initializeTableComponents()
 
 end
 
-function subscribe(params)
+function event_subscribe(params)
     local eventName = params.eventName
     local guid = params.guid
     local functionName = params.functionName
@@ -37,7 +37,7 @@ function subscribe(params)
     end
 end
 
-function broadcast(params)
+function event_broadcast(params)
     local eventName = params.eventName
     local args = params.args
     if args == nil then

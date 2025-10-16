@@ -77,7 +77,7 @@ function contextMenuFunction(player_color)
         Player[player_color].clearSelectedObjects()
     end)
 
-    targetMarker.addContextMenuItem("Save", function()
+    targetMarker.addContextMenuItem("Save", function(player_color)
         local pos = targetMarker.getBounds().center + Vector(0, 3, 0)
         local rot = targetMarker.getRotation()
         utils.appendData(caller,
@@ -89,6 +89,7 @@ function contextMenuFunction(player_color)
             }
         )
         destroyObject(targetMarker)
+        utils.success("Spawn data saved in the GM Notes", player_color)
     end)
 end
 

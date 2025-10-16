@@ -1,8 +1,9 @@
 local utils = require("src.core.utils")
 local target_reticle = require("src.modules.target_reticle_context_menu")
 local promise = require("src.core.promise")
+local events = require("src.core.events")
 function onload()
-    Global.call("subscribe", {eventName = "create_json_note", guid = self.getGUID(), functionName = "createNote"})
+    events.subscribe("create_json_note", "createNote")
     self.setTags({OBJECT_TAGS.json_note_container})
 
     target_reticle.create()
