@@ -3,7 +3,7 @@ local target_reticle = require("src.modules.target_reticle_context_menu")
 local promise = require("src.core.promise")
 local events = require("src.core.events")
 function onload()
-    events.subscribe("create_json_note", "createNote")
+    events.subscribe(events.Event.create_json_note, "createNote")
     self.setTags({OBJECT_TAGS.json_note_container})
 
     target_reticle.create()

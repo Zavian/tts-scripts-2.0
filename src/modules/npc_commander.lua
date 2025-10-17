@@ -302,7 +302,7 @@ function onload()
         self.createButton(buttons[i])
     end
 
-    events.subscribe("parse_monster_data", "parseMonsterData")
+    events.subscribe(events.Event.parse_monster_data, "ParseMonsterData")
 end
 
 function clear()
@@ -572,7 +572,10 @@ function parseJson(params)
     end
 end
 
-function parseMonsterData(args)
+--- @param args MonsterData
+function ParseMonsterData(args) 
+    debug("Event: " .. events.Event.parse_monster_data)
+
     local json = args[1]
     local data = JSON.decode(json)
 
@@ -605,5 +608,5 @@ function create_json_note(obj, player_clicker_color, alt_click)
         boss_size = getBossSize()
     }
     local json = JSON.encode(vars)
-    events.broadcast("create_json_note", json)
+    events.broadcast(events.Event.create_json_note, json)
 end

@@ -27,7 +27,7 @@ function TargetedSpawn.create(contextText)
 end
 
 function TargetedSpawn.getSpawnData(t)
-    _debug("Type: "..t, "getSpawnData")
+    _debug("Type: "..t, "TargetedSpawn.getSpawnData")
     local spawnData = utils.getData(TargetedSpawn.caller).spawnData
 
     if t == "pos" then
