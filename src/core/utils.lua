@@ -264,7 +264,7 @@ function Utils.useFromBag(bag, obj_function, bag_callback_function)
             position = position,
             rotation = rotation
         })
-        obj_function(obj)
+        if obj_function then obj_function(obj) end -- this is more redundancy than anything else...
         if bag_callback_function then bag_callback_function() end
 
         return obj
