@@ -145,5 +145,8 @@ OBJECT_TAGS = {
     npc_commander = "npc_commander",
     clever_notecard = "clever_notecard",
     targeted_reticle = "targeted_reticle",
-    json_note_container = "json_note_container"
+    json_note_container = "json_note_container",
+    monster_token = "monster_token",
+    boss_token = "boss_token",
+    infinite_container = "infinite_container"
 }

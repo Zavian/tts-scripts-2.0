@@ -104,6 +104,19 @@ function Utils.info(msg, color_to_broadcast)
     Player[color_to_broadcast].broadcast("🛈 " ..msg, CONFIG.palette.aqua.rgb)
 end
 
+function Utils.hasTagsFromList(obj, tagList)
+    if not obj or obj.isDestroyed() then return false end
+    local returner = false
+
+    for _, tag in ipairs(tagList) do
+        if obj.hasTag(tag) then
+            returner = true
+            break
+        end
+    end
+    return returner
+end
+
 function Utils.findBlackName(name)
     if name == nil then return nil end
 
@@ -150,11 +163,31 @@ function objExists(guid)
 end
 
 -- Finds the first object with a specific tag
+-- Returns nil if no object is found
 function Utils.getObjectByTag(tag)
     local allObjects = getAllObjects()
     for _, obj in ipairs(allObjects) do
         if obj.hasTag(tag) then
             return obj
+        end
+    end
+    return nil
+end
+
+function Utils.getIndexObjectWithinByTag(container, tag)
+    local allObjects = container.getObjects()
+    for index, obj in ipairs(allObjects) do
+        if Utils.searchInArray(obj.tags, tag) then
+            return obj.index
+        end
+    end
+    return nil
+end
+
+function Utils.searchInArray(array, needle)
+    for i = 1, #array do
+        if array[i] == needle then
+            return i
         end
     end
     return nil
@@ -177,7 +210,6 @@ function Utils.getData(object)
     local dataString = object.getGMNotes()
     if dataString and dataString ~= "" then
         local data = JSON.decode(dataString)
-        log(data["spawnData"]['position']['x'], "getData")
         return data
     end
     return {} -- Return an empty table on failure
@@ -190,10 +222,21 @@ function Utils.setData(object, dataTable)
 end
 
 -- Encodes a Lua table to JSON to save it in the GM notes, appending it
-function Utils.appendData(object, dataTable)
+function Utils.appendData(object, dataTable, dataSubKey)
     local data = Utils.getData(object)
+
+    local target = nil
+    if dataSubKey then
+        if not data[dataSubKey] then
+            data[dataSubKey] = {}
+        end
+        target = data[dataSubKey]
+    else
+        target = data
+    end
+
     for k, v in pairs(dataTable) do
-        data[k] = v
+        target[k] = v
     end
     Utils.setData(object, data)
 end
@@ -252,25 +295,45 @@ function Utils.getSeatedPlayers()
 end
 
 -- Take something from a bag and use it
-function Utils.useFromBag(bag, obj_function, bag_callback_function)
+function Utils.useFromBag(bag, obj_function, bag_callback_function, object_tag, spawn_table)
     local targeted_spawn = require("src.modules.target_reticle_context_menu")
 
     if not bag then return end
 
-    if bag.type == "Infinite" then
-        local position = targeted_spawn.getSpawnData("pos")
-        local rotation = targeted_spawn.getSpawnData("rot")
+    if bag.type == "Infinite" or bag.hasTag(OBJECT_TAGS.infinite_container) then
+        local position = targeted_spawn.getSpawnData("pos", spawn_table)
+        log(position)
+        local rotation = targeted_spawn.getSpawnData("rot", spawn_table)
+        log(rotation)
         local obj = bag.takeObject({
             position = position,
-            rotation = rotation
+            rotation = rotation,
+            index = object_tag and Utils.getIndexObjectWithinByTag(bag, object_tag) or nil,
+            callback_function = obj_function
         })
-        obj_function(obj)
         if bag_callback_function then bag_callback_function() end
 
         return obj
     end
 
     return nil
+end
+
+function Utils.replaceObjectInBagByTag(bag, tag_to_replace, new_object)
+    local object_index = Utils.getIndexObjectWithinByTag(bag, tag_to_replace)
+    if object_index then
+        bag.removeTag(OBJECT_TAGS.infinite_container)
+        local old = bag.takeObject({index = object_index})
+        old.destroy()
+        local clone = new_object.clone({
+            position = bag.getPosition() + Vector(0,3,0),
+            sound = false
+        })
+        bag.putObject(clone)
+        bag.addTag(OBJECT_TAGS.infinite_container)
+    else
+        return false
+    end
 end
 
 return Utils

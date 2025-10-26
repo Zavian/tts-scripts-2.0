@@ -2,8 +2,10 @@ require("src.core.utils")
 require("src.data.config")
 require("src.data.random_names")
 
-local events = require("src.core.events")
 
+local target_reticle = require('src.modules.target_reticle_context_menu')
+local events = require("src.core.events")
+local promise = require("src.core.promise")
 local utils = require("src.core.utils")
 
 local _states = {
@@ -16,14 +18,25 @@ local _states = {
 _side = "enemy"
 
 function onload()
-    self.setTags({OBJECT_TAGS.npc_commander})
+    self.setTags({OBJECT_TAGS.npc_commander, OBJECT_TAGS.infinite_container})
     
+    initializeSelfUI()
+
+    events.subscribe(events.Event.parse_monster_data, "ParseMonsterData")
+    events.subscribe(events.Event.create_json_note, "createNote")
+
+
+    target_reticle.create("Mob Spawn Reticle", "monsterSpawnData", OBJECT_TAGS.monster_token)
+    target_reticle.create("Save Card Reticle", "saveCardData", OBJECT_TAGS.clever_notecard)
+end
+
+function initializeSelfUI() 
     debug = #utils.getSeatedPlayers() == 1
 
     local inputs = {
         {
             -- name input							[0]
-            input_function = "none",
+            name = "name",
             function_owner = self,
             label = " ",
             position = {-2.94, 0.4, -0.27},
@@ -37,42 +50,40 @@ function onload()
             tab = 2
         },
         {
-            -- initiative input						[1]
-            input_function = "none",
+            -- hp input								[2]
+            name = "hp",
             function_owner = self,
             label = " ",
-            position = {-4.18, 0.4, 0.55},
+            position = {-3.88, 0.4, 0.55},
             scale = {0.5, 0.5, 0.5},
-            width = 550,
+            width = 1100,
             height = 385,
             font_size = 350,
-            tooltip = "Initiative Modifier",
+            tooltip = "Hit Points",
             value = debug and "5" or "",
             alignment = 3,
-            validation = 2,
             tab = 2
         },
         {
-            -- hp input								[2]
-            input_function = "none",
+            -- stress input								[2]
+            name = "stress",
             function_owner = self,
             label = " ",
-            position = {-3, 0.4, 0.55},
+            position = {-2.7, 0.4, 0.55},
             scale = {0.5, 0.5, 0.5},
-            width = 1540,
+            width = 1100,
             height = 385,
             font_size = 350,
-            tooltip = "Hit Points\nIf you want random hp start with r followed by the lower value and the upper value.\n" ..
-                "[i][AAAAAA]Example:[-] [0074D9]r[-][2ECC40]25[-]-[2ECC40]182[-][/i]",
-            value = debug and "r25-182" or "",
+            tooltip = "Stress",
+            value = debug and "5" or "",
             alignment = 3,
             tab = 2
         },
         {
-            --ac input								[3]
-            input_function = "none",
+            --difficulty input								[3]
+            name = "difficulty",
             function_owner = self,
-            label = " ",
+            label = "Difficulty",
             position = {-1.76, 0.4, 0.55},
             scale = {0.5, 0.5, 0.5},
             width = 650,
@@ -85,23 +96,23 @@ function onload()
             value = debug and "15" or ""
         },
         {
-            -- movement input						[4]
-            input_function = "none",
+            -- black name						[4]
+            name = "image",
             function_owner = self,
             label = " ",
-            position = {-2.94, 0.4, 1.35},
+            position = {2.7, 0.4, 1.38},
             scale = {0.5, 0.5, 0.5},
-            width = 2900,
+            width = 3150,
             height = 424,
             font_size = 350,
-            tooltip = " ",
-            alignment = 3,
+            tooltip = "Url to image (needs Is Boss to be true)",
+            alignment = 2,
             tab = 2,
-            value = debug and "30ft" or ""
+            value = ""
         },
         {
             -- numberToCreate input					[5]
-            input_function = "none",
+            name = "number_to_create",
             function_owner = self,
             label = "NMB",
             position = {0.03, 0.4, 0.73},
@@ -120,7 +131,7 @@ function onload()
             input_function = "none",
             function_owner = self,
             label = "JSON IMPORT",
-            position = {2.48, 0.4, 1.12},
+            position = {-3, 0.4, 1.35},
             scale = {0.5, 0.5, 0.5},
             color = {0.4941, 0.4941, 0.4941, 1},
             width = 2730,
@@ -131,7 +142,7 @@ function onload()
         },
         {
             -- boss token size bossSize              [7]
-            input_function = "none",
+            name = "boss_size",
             function_owner = self,
             label = "Boss Size",
             position = {3.48, 0.4, -1.08},
@@ -224,9 +235,7 @@ function onload()
             label = "?",
             tooltip = "The names of monsters can be variegated, remember of these escape characters:" ..
                 "\n- [FF4136]/[-] is for [b][FF4136]r[-][FF851B]a[-][FFDC00]n[-][2ECC40]d[-][0074D9]o[-][B10DC9]m[-] names[/b]" ..
-                    "\n- [FF4136]%[-] is for [b]numbered creatures[/b] (only works for a set of monsters)\n\n" ..
-                        "[AAAAAA]You may put things in parenthesis [FF4136]()[-] and they will be removed and put in a black only visible label, useful for " ..
-                            "reminders that you may need from time to time in combat![-]",
+                    "\n- [FF4136]%[-] is for [b]numbered creatures[/b] (only works for a set of monsters)",
             position = {-3.42, 0.4, -0.63},
             scale = {0.5, 0.5, 0.5},
             width = 290,
@@ -285,24 +294,56 @@ function onload()
             function_owner = self,
             label = "P",
             tooltip = "Parse JSON",
-            position = {4.13, 0.400000005960464, 1.12},
+            -- position = {4.13, 0.400000005960464, 1.12},
+            position = {-1.5, 0.400000005960464, 1.35},
             scale = {0.5, 0.5, 0.5},
             width = 640,
             height = 460,
             font_size = 270,
-            color = {0.3764, 0.3764, 0.3764, 1},
+            color = {0.4941, 0.4941, 0.4941, 1},
             alignment = 2
         }
     }
 
     for i = 1, #inputs do
+
+        if inputs[i].name then
+            local funcName = "input_" .. inputs[i].name
+            local func = function(_, _, value, stillEditing)
+                manageInput(inputs[i].name, value)
+            end
+            self.setVar(funcName, func)
+            inputs[i].input_function = funcName
+        end
+
         self.createInput(inputs[i])
     end
     for i = 1, #buttons do
         self.createButton(buttons[i])
     end
+end
 
-    events.subscribe(events.Event.parse_monster_data, "ParseMonsterData")
+function none() end
+
+function manageInput(input_name, value)
+    local possibleNames = {
+        "name",
+        "hp",
+        "stress",
+        "difficulty",
+        "image",
+        "number_to_create",
+        "boss_size",
+        "side"
+    }
+
+    if not utils.searchInArray(possibleNames, input_name) then
+        return
+    end
+
+    utils.appendData(self, {
+            [input_name] = value
+    }, "exportData")
 end
 
 function clear()
@@ -438,6 +479,12 @@ function switch_size(obj, player_clicker_color, alt_click)
             label = sizes[c]
         }
     )
+
+    utils.appendData(self, {
+        exportData = {
+            size = sizes[c]
+        }
+    })
 end
 
 function setSize(params)
@@ -460,6 +507,10 @@ function boss_checkbox()
         self.editButton({index = 3, color = color.red})
         self.editButton({index = 3, tooltip = "false"})
     end
+
+    utils.appendData(self, {
+        boss = not isBoss
+    }, "exportData")
 end
 
 function getBossCheckbox()
@@ -481,6 +532,10 @@ function toggleIsBoss(params)
         self.editButton({index = 3, color = color.red})
         self.editButton({index = 3, tooltip = "false"})
     end
+
+    utils.appendData(self, {
+        boss = params.input
+    }, "exportData")
 end
 
 -- side ----------------------------------------------
@@ -494,6 +549,12 @@ function switch_sides()
     end
     self.editButton({index = 4, color = _states[_side].color})
     self.editButton({index = 4, label = _side:gsub("^%l", string.upper)})
+
+    utils.appendData(self, {
+        exportData = {
+            side = _side
+        }
+    })
 end
 
 function setSide(params)
@@ -596,17 +657,87 @@ function ParseMonsterData(args)
 end
 
 function create_json_note(obj, player_clicker_color, alt_click)
+    local data = utils.getData(self).exportData
     local vars = {
-        name = getName(nil, true),
+        name = data.name,
         -- ini = getInitiative(),
-        hp = getHP(true),
-        ac = getAC(),
-        mov = getMovement(),
-        size = getSize(),
-        image = getBossCheckbox() and self.getDescription() or nil,
-        side = _side,
-        boss_size = getBossSize()
+        hp = data.hp,
+        stress = data.stress,
+        difficulty = data.difficulty,
+        size = data.size or "Medium",
+        image = data.image or nil,
+        side = data.side or "enemy",
+        boss_size = data.boss_size or nil
     }
     local json = JSON.encode(vars)
     events.broadcast(events.Event.create_json_note, json)
+end
+
+function create_npc(obj, player_clicker_color, alt_click)
+    -- local data = utils.getData(self).exportData
+
+    -- local creation_params
+    -- if data.boss then
+    --     creation_params = {
+    --         object_tag = OBJECT_TAGS.boss_token,
+    --         is_boss = true
+    --     }
+    -- else
+    --     creation_params = {
+    --         object_tag = OBJECT_TAGS.monster_token,
+    --         is_boss = false
+    --     }
+    -- end
+    create_thing()
+end
+
+function create_thing()
+    startLuaCoroutine(self, "creation_coroutine")
+end
+
+function creation_coroutine()
+    local data = utils.getData(self).exportData
+    local numberToCreate = data.number_to_create or 1
+    local object_tag = data.boss and OBJECT_TAGS.boss_token or OBJECT_TAGS.monster_token
+
+    log(object_tag)
+    
+    math.randomseed(os.time() + os.clock())
+
+    for i = 1, numberToCreate do
+        
+        utils.useFromBag(self, function(spawned_object)
+            promise.WaitUntilResting(spawned_object, function()
+                local image = data.image
+                spawned_object.use_hands = true
+
+                -- We're making a copy because else the randomness will be the same
+                local instanceData = {}
+                for k, v in pairs(data) do
+                    instanceData[k] = v
+                end
+                
+                instanceData.name = interpretName(data.name, i) 
+
+                if data.boss and data.image then
+                    spawned_object.call("_starter", {image = image, boss_size = data.boss_size})
+                end
+
+                spawned_object.call("_init", { data = instanceData })
+            end)
+        end, nil, object_tag, "monsterSpawnData")
+        coroutine.yield(0)
+    end
+
+    return 1
+end
+
+function interpretName(input, number)
+    local name = input:gsub("/", random_names[math.random(1, #random_names)])
+
+    if number then
+        name = name:gsub("%%", tostring(number))
+    end
+
+    return name
 end

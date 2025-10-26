@@ -2,13 +2,13 @@ local utils = require("src.core.utils")
 
 TargetedSpawn = {}
 
-local markerURL = "https://steamusercontent-a.akamaihd.net/ugc/2458480429345457739/4B52CB8CFA067900BA1C198D488591F9C277D34F/"
+local markerURL = "https://steamusercontent-a.akamaihd.net/ugc/9635652932658209683/73A8026732547DFEC06D5B59074CF1B6FFE0454F/"
 local PARAMS = {    
     customObjectParams = {
         image = markerURL,
-        image_bottom = markerURL,
         type = 2,
         thickness = 0.2,
+        merge_distance = 5,
         stackable = false,
     }
 }
@@ -16,19 +16,25 @@ local PARAMS = {
 TargetedSpawn.caller = self
 TargetedSpawn.targetMarker = null;
 
-function TargetedSpawn.create(contextText)
+function TargetedSpawn.create(contextText, varName, tagToPull)
+    if not varName then varName = "spawnData" end
+
+    -- TargetedSpawn.varName = varName
     TargetedSpawn.targetMarker = null
     TargetedSpawn.caller = self
 
     self.addTag(OBJECT_TAGS.targeted_reticle)
 
     if not contextText then contextText = "Spawning Reticle" end
-    TargetedSpawn.caller.addContextMenuItem(contextText, function(player_color) contextMenuFunction(player_color) end)
+    TargetedSpawn.caller.addContextMenuItem(contextText, function(player_color) contextMenuFunction(player_color, tagToPull, varName) end)
 end
 
-function TargetedSpawn.getSpawnData(t)
+function TargetedSpawn.getSpawnData(t, spawn_table)
     _debug("Type: "..t, "TargetedSpawn.getSpawnData")
-    local spawnData = utils.getData(TargetedSpawn.caller).spawnData
+
+    local target = spawn_table and spawn_table or "spawnData"
+
+    local spawnData = utils.getData(TargetedSpawn.caller)[target]
 
     if t == "pos" then
         if spawnData then
@@ -45,7 +51,7 @@ function TargetedSpawn.getSpawnData(t)
     end
 end
 
-function contextMenuFunction(player_color)
+function contextMenuFunction(player_color, tagToPull, varName)
     local targetMarker = TargetedSpawn.targetMarker
     local caller = TargetedSpawn.caller
 
@@ -57,7 +63,7 @@ function contextMenuFunction(player_color)
     end
 
     targetMarker = spawnObject({
-        type = "Custom_Tile",
+        type = "Custom_Token",
         position = caller.getBounds().center + Vector(0,3,0),
         scale = Vector(0.4,0.4,0.4),
         callback_function = function(spawned) 
@@ -66,13 +72,18 @@ function contextMenuFunction(player_color)
         end
     })
     targetMarker.setName("▶ Place me where you want the object to land. Right click for me to save. Rotation and positions are saved")
-    targetMarker.setColorTint("Black")
     targetMarker.setCustomObject(PARAMS.customObjectParams)
 
     targetMarker.addContextMenuItem("Test" , function(player_color)
+        local indexToPull = nil
+        if tagToPull then
+            indexToPull = utils.getIndexObjectWithinByTag(caller, tagToPull)
+        end
+
         caller.takeObject({
             position = targetMarker.getBounds().center + Vector(0, 3, 0),
-            rotation = targetMarker.getRotation()
+            rotation = targetMarker.getRotation(),
+            index = indexToPull or nil
         })
         Player[player_color].clearSelectedObjects()
     end)
@@ -82,7 +93,7 @@ function contextMenuFunction(player_color)
         local rot = targetMarker.getRotation()
         utils.appendData(caller,
             {
-                spawnData = {
+                [varName] = {
                     position = pos,
                     rotation = rot
                 }
