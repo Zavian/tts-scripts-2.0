@@ -4,7 +4,10 @@
 -- Workshop Link: https://steamcommunity.com/sharedfiles/filedetails/?id=3181973858
 
 require("src.data.config")
+require("src.data.asset_urls")
+
 local utils = require("src.core.utils")
+local promise = require("src.core.promise")
 
 local state = nil
 local ready = false
@@ -30,46 +33,8 @@ function onUpdate()
     end
 end
 
-function _starter(params)
-    log(params)
-    self.setCustomObject(
-        {
-            image = params.image,
-            image_scalar = params.boss_size
-        }
-    )
-end
 
-function _init(params)
-    local json
-    
-    if (params) then
-        json = params.data
-    else return end
 
-    log(json)
-
-    data.hp = json.hp
-    data.maxHp = json.hp
-    data.stress = json.stress
-    data.maxStress = json.stress
-    data.difficulty = json.difficulty
-    
-    
-    data.name = json.name
-    data.image = json.image
-    data.boss_size = json.boss_size
-
-    self.script_state = JSON.encode(data)
-
-    local n = self.reload()
-
-    local blackHand = Player["Black"].getHandTransform()
-    if blackHand then 
-        n.setPosition(blackHand.position) 
-        n.setRotation(Vector(0,0,0))
-    end
-end
 
 function onPickUp()
     self.UI.hide("pivot")
@@ -96,13 +61,12 @@ function alignPivot()
             local rot = self.getRotation()
             local ang = Vector(-rot.x, -rot.z, rot.y-pRot+180)
             local scale = self.getScale()
-            local object_type = self.type
             
             if( not data.height or data.height < 0 ) then
-                if (object_type == "Figurine") then
-                    data.height = 150
+                if (self.hasTag(OBJECT_TAGS.monster_token)) then
+                    data.height = 200
                 else 
-                    data.height = 175
+                    data.height = 250
                 end
             end
     
@@ -159,7 +123,7 @@ function setMaxHP(amount)
         data.hp = tonumber(amount)
     end
     changeHP(0)
-    self.UI.setAttributes("hp", vals)
+    -- self.UI.setAttributes("hp", vals)
     self.UI.setAttributes("smallhp", smallvals)
     updateSave()
 end
@@ -167,14 +131,14 @@ function changeHP(amount)
     data.hp = tonumber(data.hp)+tonumber(amount)
     if (tonumber(data.hp) <= 0) then
         data.hp = 0
-        self.UI.setAttribute("hp", "color", "#ff0000ff")
+        -- self.UI.setAttribute("hp", "color", "#ff0000ff")
         self.UI.setAttribute("smallHp", "color", "#ff0000ff")
     else
-        self.UI.setAttribute("hp", "color", "Black")
+        -- self.UI.setAttribute("hp", "color", "Black")
         self.UI.setAttribute("smallHp", "color", "Black")
     end
     if (tonumber(data.hp) > tonumber(data.maxHp)) then data.hp = data.maxHp end
-    self.UI.setValue("hp", barString("□", "■", data.hp, data.maxHp))
+    -- self.UI.setValue("hp", barString("□", "■", data.hp, data.maxHp))
     self.UI.setValue("smallhp", barString("□", "■", data.hp, data.maxHp))
     updateSave()
 end
@@ -192,14 +156,14 @@ function changeStress(amount)
     data.stress = data.stress+amount
     if (tonumber(data.stress) <= 0) then
         data.stress = 0
-        self.UI.setAttribute("stress", "color", "#ff6a00ff")
+        -- self.UI.setAttribute("stress", "color", "#ff6a00ff")
         self.UI.setAttribute("smallstress", "color", "#ff6a00ff")
     else
-        self.UI.setAttribute("stress", "color", "Black")
+        -- self.UI.setAttribute("stress", "color", "Black")
         self.UI.setAttribute("smallstress", "color", "Black")
     end
     if (tonumber(data.stress) > tonumber(data.maxStress)) then data.stress = data.maxStress end
-    self.UI.setValue("stress", barString("□", "■", data.stress, data.maxStress))
+    -- self.UI.setValue("stress", barString("□", "■", data.stress, data.maxStress))
     self.UI.setValue("smallstress", barString("□", "■", data.stress, data.maxStress))
     updateSave()
 end
@@ -255,16 +219,91 @@ function onload(saved_data)
         data = JSON.decode(saved_data)
     end
     
-    local object_type = self.type
+    -- This part runs for every object, every time.
+    local object_model = self.getCustomObject().mesh
+    if not object_model then
+        utils.error("Object model not found, monster tokens are broken")
+        return
+    end
 
-    if (object_type == "Figurine") then
+    if (object_model == ASSET_URLS.monster_model_url) then
         self.setTags({OBJECT_TAGS.monster_token})
     else 
         self.setTags({OBJECT_TAGS.boss_token})
     end
+    
+    setupDMUI() -- Sets up UI, context menus, etc.
 
-    setupDMUI()
+    -- This block ONLY runs for the final object immediately after creation.
+    if (data.post_reload_action) then
+        -- Use WaitUntilResting to ensure physics are stable.
+        promise.WaitUntilResting(self, function()
+            -- Now that the object is stable, move it to its destination.
+            _debug("Post-reload action on final object: " .. self.getGUID(), "MONSTER_UI")
+            local blackHand = Player["Black"].getHandTransform()
+            if blackHand then 
+                self.setLock(false)
+                self.setPosition(blackHand.position) 
+                self.setRotation(Vector(0,0,0))
+            end
+            
+            -- CRITICAL: Clear the flag and save so this doesn't run on a normal game load.
+            data.post_reload_action = nil
+            updateSave() -- This saves the script_state with the flag removed.
+        end)
+    end
+
+    -- This alignment can run for all loads.
+    Wait.time(function()
+        lastAng = -1
+        alignPivot()
+    end, 0.75)
 end
+
+function _init(params)
+    if not params or not params.data then
+        utils.error("Error: _init called without complete params")
+        return 
+    end
+
+    local json = params.data
+
+    -- 1. STAGE THE MODEL CHANGE
+    -- This sets the custom object properties on the temporary object.
+    -- These properties will be copied to the new object during reload.
+    if json.image then
+        self.setCustomObject({
+            diffuse = params.image,
+        })
+    end
+
+    -- 2. PREPARE THE DATA PAYLOAD
+    -- Load all the data into the 'data' table.
+    data.hp = json.hp
+    data.maxHp = json.hp
+    data.stress = json.stress
+    data.maxStress = json.stress
+    data.difficulty = json.difficulty
+    data.name = json.name
+    data.image = json.image
+
+    -- 3. SET THE FLAG FOR THE NEXT PHASE
+    -- This flag tells the final object's onload that it needs to run the placement logic.
+    data.post_reload_action = true
+
+    -- 4. SAVE THE STATE
+    -- This is the critical step: we save the complete state BEFORE reloading.
+    -- The new object will load this state.
+    self.script_state = JSON.encode(data)
+    self.setLock(true)
+
+    -- 5. EXECUTE THE REPLACEMENT
+    -- This destroys the temporary object and creates the final one.
+    -- This is the VERY LAST command.
+    self.reload()
+end
+
+
 
 function setupDMUI()
     self.addContextMenuItem("Toggle UI", toggleUI, true)
@@ -276,7 +315,17 @@ function setupDMUI()
                 setName(text)
             end
         )
-    end, true)
+    end, false)
+    self.addContextMenuItem("Toggle Condition", function()
+        Player["Black"].showOptionsDialog("Select Condition", 
+            {"Select Condition", "restrained", "vulnerable", "stressed", "bloodied"},
+            1,
+            function (text, player_color)
+                toggleCondition(text)
+            end
+        )
+    end, false)
+
     self.UI.setCustomAssets({{
         type=0,
         name="bars",
@@ -302,7 +351,6 @@ function setupDMUI()
                 <InputField visibility="Black"/>
                 <Button tooltipOffset="-25" tooltipBackgroundColor="#000000ff" color="#ffffff00" textColor="#000000ff" textAlignment="MiddleCenter"/>
                 <Button class="clickable" color="#ffffffff" colors="#ffffff00|#ffff0040|#00000040|#ffffff00"/>
-                <Image class="condition" width="5000" height="5000" scale="1 1 1"/>
             </Defaults>
             <Panel id="scale">
                 <Panel id="pivot" visibility="Black" active="]]..tostring(data.showing)..[[" offsetXY="0 0" scale="1 1 1" rotation="0 0 0">
@@ -387,40 +435,26 @@ function setupDMUI()
             </Panel>
         ]]
 
-        -- local scale = self.getScale()
-        -- local panelScale = 0.005
-        -- local scaleString = tostring(1/scale.x*panelScale).." "..tostring(1/scale.z*panelScale).." "..tostring(1/scale.y*panelScale)
-
-        -- local panelPosY = 0
-
-        -- if (self.type == "Figurine") then
-        --     panelPosY = 1150
-        -- else 
-        --     panelPosY = 400
-        -- end
-
-        -- require("src.data.condition_images")
-
-        -- XMLString = XMLString .. [[
-        --     <HorizontalLayout height="10000" width="50000" id="conditions" childForceExpandWidth="false" position="0 0 -]]..panelPosY..[[" rotation="90 0 0">
-        --         <Image width="5000" height="5000" class="condition" image="]]..CONDITIONS.restrained.url..[["  />
-        --         <Image class="condition" image="]]..CONDITIONS.restrained.url..[["  />
-        --     </HorizontalLayout>
-        -- ]]
-
-        if (self.type == "Figurine") then
-            XMLString = XMLString .. [[
-                <Text id="BlackName" scale="3 3 3" fontSize="34" visibility="Black" text="Black Name" color="Black" position="0 150 -120" rotation="90 270 90" fontStyle="Bold" outline="White" outlineSize="1 -1" />
-                <Text id="creatureName" position="0 200 -50" width="150" rotation="180 180 0" scale="3 3 3" fontSize="34" text="]]..data.name..[[" color="Black" fontStyle="Bold" outline="White" outlineSize="1 -1" />
-                
-            ]]
-        else
-            XMLString = XMLString .. [[
-                <Text id="BlackName"  scale="1 1 1" fontSize="34" visibility="Black" text="Black Name" color="Black" position="0 40 -50" rotation="90 270 90" fontStyle="Bold" outline="White" outlineSize="1 -1" />
-                <Text id="creatureName" position="0 35 -5" width="300" rotation="180 180 0" scale="1 1 1" fontSize="34" text="]]..data.name..[[" color="Black" fontStyle="Bold" outline="White" outlineSize="1 -1" />
-                
-            ]]
+        local panelPosY = 500
+        if (self.hasTag(OBJECT_TAGS.boss_token)) then
+            panelPosY = 775
         end
+
+        require("src.data.condition_images")
+
+        XMLString = XMLString .. [[
+            <GridLayout scale="1 1 1" cellSize="200 200" childAlignment="MiddleCenter" id="conditions" constraint="FixedRowCount" constraintCount="1"  position="0 0 -]]..panelPosY..[[" rotation="90 0 0">
+                <Image id="restrained" width="200" height="200" class="condition" image="]]..CONDITIONS["restrained"].url..[["  active="false" />
+                <Image id="vulnerable" width="200" height="200" class="condition" image="]]..CONDITIONS["vulnerable"].url..[[" rotation="0 0 180"  active="false" />
+                <Image id="stressed" width="200" height="200" class="condition" image="]]..CONDITIONS["stressed"].url..[["  active="false" />
+                <Image id="bloodied" width="200" height="200" class="condition" image="]]..CONDITIONS["bloodied"].url..[["  active="false" />
+            </GridLayout>
+        ]]
+        
+        XMLString = XMLString .. [[
+            <Text id="BlackName" scale="3 3 3" fontSize="34" visibility="Black" text="Black Name" color="Black" position="0 150 -120" rotation="90 270 90" fontStyle="Bold" outline="White" outlineSize="1 -1" />
+            <Text id="creatureName" position="0 200 -50" width="200" rotation="180 180 0" scale="3 3 3" fontSize="34" text="]]..data.name..[[" color="Black" fontStyle="Bold" outline="White" outlineSize="1 -1" />
+        ]]
 
         self.UI.setXml(XMLString)
     end, 0.5)
@@ -428,6 +462,17 @@ function setupDMUI()
         lastAng = -1
         alignPivot()
     end, 0.75)
+end
+
+function toggleCondition(conditionName)
+    local conditionState = nil
+    if (self.UI.getAttribute(conditionName, "active") == "true") then
+        conditionState = "false"
+    else
+        conditionState = "true"
+    end
+
+    self.UI.setAttribute(conditionName, "active", conditionState)
 end
 
 function hasScriptingTags(obj)

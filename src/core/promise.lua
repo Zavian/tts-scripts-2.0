@@ -16,4 +16,11 @@ function Promise.WaitFrames(frames, callback_function)
     )
 end
 
+function Promise.WaitTime(time, callback_function)
+    Wait.time(
+        callback_function or function() end,
+        time or 1
+    )
+end
+
 return Promise

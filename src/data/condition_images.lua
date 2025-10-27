@@ -11,5 +11,11 @@ CONDITIONS = {
     },
     restrained = {
         url = "https://steamusercontent-a.akamaihd.net/ugc/2426949702261749880/B2B7FFA29ED39AAFCCD86AF675A5C9FDA54BFBE0/"
+    },
+    stressed = {
+        url = "https://steamusercontent-a.akamaihd.net/ugc/2426949702261749880/B2B7FFA29ED39AAFCCD86AF675A5C9FDA54BFBE0/"
+    },
+    bloodied = {
+        url = "https://steamusercontent-a.akamaihd.net/ugc/2426949702261749880/B2B7FFA29ED39AAFCCD86AF675A5C9FDA54BFBE0/"
     }
 }

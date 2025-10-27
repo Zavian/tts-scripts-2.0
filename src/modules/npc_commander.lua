@@ -140,22 +140,22 @@ function initializeSelfUI()
             tooltip = "Import JSON stuff",
             alignment = 2
         },
-        {
-            -- boss token size bossSize              [7]
-            name = "boss_size",
-            function_owner = self,
-            label = "Boss Size",
-            position = {3.48, 0.4, -1.08},
-            scale = {0.5, 0.5, 0.5},
-            width = 1830,
-            height = 425,
-            font_size = 300,
-            color = {0.4941, 0.4941, 0.4941, 1},
-            tooltip = "Boss Token Size",
-            alignment = 3,
-            value = "Boss token size",
-            validation = 3
-        }
+        -- {
+        --     -- boss token size bossSize              [7]
+        --     name = "boss_size",
+        --     function_owner = self,
+        --     label = "Boss Size",
+        --     position = {3.48, 0.4, -1.08},
+        --     scale = {0.5, 0.5, 0.5},
+        --     width = 1830,
+        --     height = 425,
+        --     font_size = 300,
+        --     color = {0.4941, 0.4941, 0.4941, 1},
+        --     tooltip = "Boss Token Size",
+        --     alignment = 3,
+        --     value = "Boss token size",
+        --     validation = 3
+        -- }
     }
     local buttons = {
         {
@@ -333,7 +333,6 @@ function manageInput(input_name, value)
         "difficulty",
         "image",
         "number_to_create",
-        "boss_size",
         "side"
     }
 
@@ -667,7 +666,6 @@ function create_json_note(obj, player_clicker_color, alt_click)
         size = data.size or "Medium",
         image = data.image or nil,
         side = data.side or "enemy",
-        boss_size = data.boss_size or nil
     }
     local json = JSON.encode(vars)
     events.broadcast(events.Event.create_json_note, json)
@@ -695,49 +693,110 @@ function create_thing()
     startLuaCoroutine(self, "creation_coroutine")
 end
 
+-- Module-level tables to hold the shuffled, available names
+local available_random_names = {}
+local available_paired_names = {}
+
+---
+-- Shuffles a table in-place using the Fisher-Yates algorithm.
+-- @param tbl The table to be shuffled.
+--
+local function shuffle(tbl)
+    for i = #tbl, 2, -1 do
+        local j = math.random(i)
+        tbl[i], tbl[j] = tbl[j], tbl[i]
+    end
+end
+
+---
+-- Initializes the name pools by creating and shuffling copies of the master name lists.
+--
+local function initialize_name_pools()
+    available_random_names = {}
+    for _, name in ipairs(random_names) do
+        table.insert(available_random_names, name)
+    end
+    shuffle(available_random_names)
+
+    available_paired_names = {}
+    for _, pair in ipairs(paired_names) do
+        table.insert(available_paired_names, pair)
+    end
+    shuffle(available_paired_names)
+end
+
 function creation_coroutine()
     local data = utils.getData(self).exportData
-    local numberToCreate = data.number_to_create or 1
+    -- Ensure number_to_create is a number, with a safe fallback.
+    local numberToCreate = tonumber(data.number_to_create) or 1
     local object_tag = data.boss and OBJECT_TAGS.boss_token or OBJECT_TAGS.monster_token
-
-    log(object_tag)
     
     math.randomseed(os.time() + os.clock())
+
+    initialize_name_pools()
+
+    -- This variable will hold the second name of a pair for the next iteration.
+    local pending_pair_name = nil
+
+    -- CHANCE-BASED LOGIC SETUP --
+    -- Set the probability of choosing a pair.
+    local pair_chance = 0.10
+    if numberToCreate == 2 then
+        -- Special case: If creating exactly two, make the chance of them being a pair very high.
+        pair_chance = 0.9 -- 90% chance.
+    end
+
+    print("must create " .. numberToCreate)
 
     for i = 1, numberToCreate do
         
         utils.useFromBag(self, function(spawned_object)
-            promise.WaitUntilResting(spawned_object, function()
-                local image = data.image
-                spawned_object.use_hands = true
+            local image = data.image
+            spawned_object.use_hands = true
 
-                -- We're making a copy because else the randomness will be the same
-                local instanceData = {}
-                for k, v in pairs(data) do
-                    instanceData[k] = v
-                end
+            local instanceData = {}
+            for k, v in pairs(data) do
+                instanceData[k] = v
+            end
+            
+            -- NAME GENERATION LOGIC --
+            local current_name
+            
+            if pending_pair_name then
+                -- A pending name from a pair must be used.
+                current_name = pending_pair_name
+                pending_pair_name = nil -- Reset for the next iteration.
+            else
+                -- Decide whether to start a new pair or use a regular name.
+                -- Conditions to use a pair:
+                -- 1. There is room for the second part (i < numberToCreate).
+                -- 2. There are paired names available.
+                local can_use_pair = (i < numberToCreate) and (#available_paired_names > 0)
                 
-                instanceData.name = interpretName(data.name, i) 
-
-                if data.boss and data.image then
-                    spawned_object.call("_starter", {image = image, boss_size = data.boss_size})
+                -- Check against the determined chance.
+                if can_use_pair and (math.random() < pair_chance) then
+                    -- Pull a new pair from the shuffled pool.
+                    local pair = table.remove(available_paired_names)
+                    current_name = pair[1]
+                    pending_pair_name = pair[2] -- Set the pending name for the next iteration.
+                else
+                    -- Use a regular random name.
+                    current_name = table.remove(available_random_names) or "Nameless" -- Fallback
                 end
+            end
 
-                spawned_object.call("_init", { data = instanceData })
-            end)
+            instanceData.name = current_name:gsub("%%", tostring(i))
+
+            local init_params = {
+                data = instanceData,
+                image = (data.boss and data.image) and data.image or nil, -- Pass the image from _starter here
+            }
+
+            -- Call only _init with all the necessary information
+            spawned_object.call("_init", init_params)
         end, nil, object_tag, "monsterSpawnData")
         coroutine.yield(0)
     end
 
     return 1
-end
-
-function interpretName(input, number)
-    local name = input:gsub("/", random_names[math.random(1, #random_names)])
-
-    if number then
-        name = name:gsub("%%", tostring(number))
-    end
-
-    return name
 end

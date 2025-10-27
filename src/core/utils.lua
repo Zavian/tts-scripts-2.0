@@ -8,7 +8,7 @@ function _debug(msg, source)
     if not source then source = "DEBUG" end
 
     if #Utils.getSeatedPlayers() == 1 then
-        print("[" .. os.date("%H:%M:%S") .. "][" .. source .. "] " .. msg)
+        print("[BBBBBB](" .. os.date("%H:%M:%S") .. ") [B9EA4F](" .. source .. ")[ffffff] " .. msg)
     end
 end
 
@@ -295,16 +295,21 @@ function Utils.getSeatedPlayers()
 end
 
 -- Take something from a bag and use it
-function Utils.useFromBag(bag, obj_function, bag_callback_function, object_tag, spawn_table)
+function Utils.useFromBag(bag, obj_function, bag_callback_function, object_tag, spawn_table, random_offset)
     local targeted_spawn = require("src.modules.target_reticle_context_menu")
 
     if not bag then return end
 
     if bag.type == "Infinite" or bag.hasTag(OBJECT_TAGS.infinite_container) then
         local position = targeted_spawn.getSpawnData("pos", spawn_table)
-        log(position)
+
+        if random_offset then
+            local offset = math.random(-5, 5)
+            position = position + Vector(offset, 0, offset)
+        end
+
+
         local rotation = targeted_spawn.getSpawnData("rot", spawn_table)
-        log(rotation)
         local obj = bag.takeObject({
             position = position,
             rotation = rotation,

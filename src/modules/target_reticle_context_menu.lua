@@ -30,8 +30,6 @@ function TargetedSpawn.create(contextText, varName, tagToPull)
 end
 
 function TargetedSpawn.getSpawnData(t, spawn_table)
-    _debug("Type: "..t, "TargetedSpawn.getSpawnData")
-
     local target = spawn_table and spawn_table or "spawnData"
 
     local spawnData = utils.getData(TargetedSpawn.caller)[target]
