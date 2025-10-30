@@ -10,13 +10,14 @@
 local Events = {}
 
 -- Dictionary for possible events
-Events.Event = {
+Events.EVENT_NAMES = {
     parse_monster_data = "parse_monster_data",
     create_json_note = "create_json_note",
 
     -- in development
     player_hp_update = "player_hp_update",
     monster_hp_update = "monster_hp_update",
+    monster_stress_update = "monster_stress_update",
     ruin_update = "ruin_update",
     on_roll = "on_roll",
     create_monster = "create_monster"

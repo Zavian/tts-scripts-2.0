@@ -8,6 +8,7 @@ require("src.data.asset_urls")
 
 local utils = require("src.core.utils")
 local promise = require("src.core.promise")
+local event = require("src.core.events")
 
 local state = nil
 local ready = false
@@ -36,11 +37,11 @@ end
 
 
 
-function onPickUp()
+function onPickUp(player_color)
     self.UI.hide("pivot")
 end
 
-function onDrop()
+function onDrop(player_color)
     lastAng = -1
     alignPivot()
     if (data.showing) then
@@ -140,6 +141,12 @@ function changeHP(amount)
     if (tonumber(data.hp) > tonumber(data.maxHp)) then data.hp = data.maxHp end
     -- self.UI.setValue("hp", barString("□", "■", data.hp, data.maxHp))
     self.UI.setValue("smallhp", barString("□", "■", data.hp, data.maxHp))
+
+    event_broadcast({
+        eventName = events.EVENT_NAMES.monster_hp_update,
+        args = {hp = data.hp, obj_guid = self.getGUID()}
+    })
+
     updateSave()
 end
 
@@ -165,11 +172,22 @@ function changeStress(amount)
     if (tonumber(data.stress) > tonumber(data.maxStress)) then data.stress = data.maxStress end
     -- self.UI.setValue("stress", barString("□", "■", data.stress, data.maxStress))
     self.UI.setValue("smallstress", barString("□", "■", data.stress, data.maxStress))
+
+    event_broadcast({
+        eventName = event.EVENT_NAMESmonster_stress_update,
+        args = {stress = data.stress, obj_guid = self.getGUID()}
+    })
+
     updateSave()
 end
 
 
 function toggleUI(player_color)
+    if (player_color ~= "Black") then
+        utils.error("You must be GM to toggle the UI.", player_color)
+        return
+    end
+
     if (data.showing) then
         hideUI()
         callForAllSelected("hideUI")
@@ -196,14 +214,24 @@ function callForAllSelected(func, param)
     end
 end
 
-function raiseUI()
+function raiseUI(player_color)
+    if (player_color ~= "Black") then
+        utils.error("You must be GM to raise the UI.", player_color)
+        return
+    end
+
     lastAng = -1
     data.height = data.height + 25
     alignPivot()
     updateSave()
 end
 
-function lowerUI()
+function lowerUI(player_color)
+    if (player_color ~= "Black") then
+        utils.error("You must be GM to lower the UI.", player_color)
+        return
+    end
+
     lastAng = -1
     data.height = data.height - 25
     alignPivot()
@@ -218,20 +246,15 @@ function onload(saved_data)
     if (saved_data ~= "") then
         data = JSON.decode(saved_data)
     end
+
     
     -- This part runs for every object, every time.
-    local object_model = self.getCustomObject().mesh
-    if not object_model then
-        utils.error("Object model not found, monster tokens are broken")
-        return
-    end
-
-    if (object_model == ASSET_URLS.monster_model_url) then
+    local object_type = self.type
+    if object_type == "Figurine" then
         self.setTags({OBJECT_TAGS.monster_token})
     else 
         self.setTags({OBJECT_TAGS.boss_token})
     end
-    
     setupDMUI() -- Sets up UI, context menus, etc.
 
     -- This block ONLY runs for the final object immediately after creation.
@@ -272,9 +295,11 @@ function _init(params)
     -- This sets the custom object properties on the temporary object.
     -- These properties will be copied to the new object during reload.
     if json.image then
-        self.setCustomObject({
-            diffuse = params.image,
-        })
+        self.setCustomObject(
+            {
+                image = params.image,
+            }
+        )
     end
 
     -- 2. PREPARE THE DATA PAYLOAD
@@ -309,15 +334,18 @@ function setupDMUI()
     self.addContextMenuItem("Toggle UI", toggleUI, true)
     self.addContextMenuItem("Raise UI", raiseUI, true)
     self.addContextMenuItem("Lower UI", lowerUI, true)
-    self.addContextMenuItem("Set Name", function()
+    self.addContextMenuItem("Set Name", function(player_color)
+        if player_color ~= "Black" then
+            utils.error("You must be GM to set names.", player_color)
+        end
         Player["Black"].showInputDialog("Set Name", data.name,
             function (text, player_color)
                 setName(text)
             end
         )
     end, false)
-    self.addContextMenuItem("Toggle Condition", function()
-        Player["Black"].showOptionsDialog("Select Condition", 
+    self.addContextMenuItem("Toggle Condition", function(player_color)
+        Player[player_color].showOptionsDialog("Select Condition", 
             {"Select Condition", "restrained", "vulnerable", "stressed", "bloodied"},
             1,
             function (text, player_color)
@@ -435,25 +463,27 @@ function setupDMUI()
             </Panel>
         ]]
 
-        local panelPosY = 500
+        local panelPosY = 350
         if (self.hasTag(OBJECT_TAGS.boss_token)) then
-            panelPosY = 775
+            panelPosY = 480
         end
 
         require("src.data.condition_images")
 
+        local iconSize = 100
+
         XMLString = XMLString .. [[
-            <GridLayout scale="1 1 1" cellSize="200 200" childAlignment="MiddleCenter" id="conditions" constraint="FixedRowCount" constraintCount="1"  position="0 0 -]]..panelPosY..[[" rotation="90 0 0">
-                <Image id="restrained" width="200" height="200" class="condition" image="]]..CONDITIONS["restrained"].url..[["  active="false" />
-                <Image id="vulnerable" width="200" height="200" class="condition" image="]]..CONDITIONS["vulnerable"].url..[[" rotation="0 0 180"  active="false" />
-                <Image id="stressed" width="200" height="200" class="condition" image="]]..CONDITIONS["stressed"].url..[["  active="false" />
-                <Image id="bloodied" width="200" height="200" class="condition" image="]]..CONDITIONS["bloodied"].url..[["  active="false" />
+            <GridLayout scale="1 1 1" cellSize="]]..iconSize..[[ ]]..iconSize..[[" childAlignment="MiddleCenter" id="conditions" constraint="FixedRowCount" constraintCount="1"  position="0 0 -]]..panelPosY..[[" rotation="90 0 0">
+                <Image id="restrained" width="]]..iconSize..[[" height="]]..iconSize..[[" class="condition" image="]]..CONDITIONS["restrained"].url..[["  active="false" />
+                <Image id="vulnerable" width="]]..iconSize..[[" height="]]..iconSize..[[" class="condition" image="]]..CONDITIONS["vulnerable"].url..[[" rotation="0 0 180"  active="false" />
+                <Image id="stressed" width="]]..iconSize..[[" height="]]..iconSize..[[" class="condition" image="]]..CONDITIONS["stressed"].url..[["  active="false" />
+                <Image id="bloodied" width="]]..iconSize..[[" height="]]..iconSize..[[" class="condition" image="]]..CONDITIONS["bloodied"].url..[["  active="false" />
             </GridLayout>
         ]]
         
         XMLString = XMLString .. [[
-            <Text id="BlackName" scale="3 3 3" fontSize="34" visibility="Black" text="Black Name" color="Black" position="0 150 -120" rotation="90 270 90" fontStyle="Bold" outline="White" outlineSize="1 -1" />
-            <Text id="creatureName" position="0 200 -50" width="200" rotation="180 180 0" scale="3 3 3" fontSize="34" text="]]..data.name..[[" color="Black" fontStyle="Bold" outline="White" outlineSize="1 -1" />
+            <Text id="BlackName" scale="1 1 1" fontSize="34" visibility="Black" text="Black Name" color="Black" position="0 50 -50" rotation="90 270 90" fontStyle="Bold" outline="White" outlineSize="1 -1" />
+            <Text id="creatureName" position="0 55 -5" width="200" rotation="180 180 0" scale="1 1 1" fontSize="34" text="]]..data.name..[[" color="Black" fontStyle="Bold" outline="White" outlineSize="1 -1" />
         ]]
 
         self.UI.setXml(XMLString)

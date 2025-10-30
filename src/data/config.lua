@@ -148,5 +148,7 @@ OBJECT_TAGS = {
     json_note_container = "json_note_container",
     monster_token = "monster_token",
     boss_token = "boss_token",
-    infinite_container = "infinite_container"
+    infinite_container = "infinite_container",
+    movement_measurement = "movement_measurement",
+    player = "player_token"
 }

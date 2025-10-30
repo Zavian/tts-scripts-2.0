@@ -6,8 +6,9 @@ require('src.data.config')
 -- Laod core modules
 local EventDispatcher = require('src.core.event_dispatcher')
 local utils = require('src.core.utils')
-local Updater = require('src.core.updater')
-local Promise = require('src.core.promise')
+local updater = require('src.core.updater')
+local promise = require('src.core.promise')
+local movement_measurement = require('src.core.movement_measurement')
 
 -- Load UI Manager
 
@@ -15,13 +16,14 @@ local Promise = require('src.core.promise')
 
 -- Global Variables
 local COMPONENTS = {
-    npc_commander = nil
+    npc_commander = nil,
+    movement_objects = {},
 }
 local _SEARCHING = false
 
 -- onload stuff
 function onLoad(save_state)
-    Promise.WaitFrames(35, function()
+    promise.WaitFrames(35, function()
         initializeTableComponents()
 
         local newBoss = utils.getObjectByTag(OBJECT_TAGS.boss_token)
@@ -32,6 +34,12 @@ function onLoad(save_state)
 
         local newNote = utils.getObjectByTag(OBJECT_TAGS.clever_notecard)
         utils.replaceObjectInBagByTag(COMPONENTS.npc_commander, OBJECT_TAGS.clever_notecard, newNote)
+
+
+        COMPONENTS.movementObjects = utils.getObjectsByTag(OBJECT_TAGS.movement_measurement)
+        for _, obj in pairs(COMPONENTS.movementObjects) do
+            movement_measurement.create(obj)
+        end
     end)
 end
 
@@ -63,6 +71,25 @@ end
 
 function onObjectSearchEnd(object, player_color)
     _SEARCHING = false
+end
+
+
+function onObjectPickUp(player_color, pick_obj)
+    if pick_obj.hasTag(OBJECT_TAGS.movement_measurement) then
+        log(pick_obj, "pick_obj")
+        log(pick_obj.guid, "pick_obj.guid")
+        if movement_measurement.my_token == nil then
+            movement_measurement.create(pick_obj)
+            table.insert(COMPONENTS.movementObjects, pick_obj)
+        end        
+        movement_measurement.onPickUp(pick_obj, player_color)
+    end
+end
+
+function onObjectDrop(player_color, drop_obj)
+    if drop_obj.hasTag(OBJECT_TAGS.movement_measurement) then
+        movement_measurement.onDrop(drop)
+    end
 end
 
 function initializeTableComponents()

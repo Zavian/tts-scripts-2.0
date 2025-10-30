@@ -22,8 +22,8 @@ function onload()
     
     initializeSelfUI()
 
-    events.subscribe(events.Event.parse_monster_data, "ParseMonsterData")
-    events.subscribe(events.Event.create_json_note, "createNote")
+    events.subscribe(events.EVENT_NAMES.parse_monster_data, "ParseMonsterData")
+    events.subscribe(events.EVENT_NAMES.create_json_note, "createNote")
 
 
     target_reticle.create("Mob Spawn Reticle", "monsterSpawnData", OBJECT_TAGS.monster_token)

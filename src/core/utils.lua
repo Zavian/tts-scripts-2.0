@@ -39,6 +39,49 @@ function Utils.getPlayerByColor(color)
     return nil
 end
 
+function Utils.hideFromPlayersArray()
+    return {
+        "White",
+        "Brown",
+        "Red",
+        "Orange",
+        "Yellow",
+        "Green",
+        "Teal",
+        "Blue",
+        "Purple",
+        "Pink",
+        "Grey"
+    }
+end
+
+function Utils.allPlayersArray()
+    return {
+        "White",
+        "Brown",
+        "Red",
+        "Orange",
+        "Yellow",
+        "Green",
+        "Teal",
+        "Blue",
+        "Purple",
+        "Pink",
+        "Grey",
+        "Black"
+    }
+end
+
+function Utils.hideFromAllButPlayer(player)
+    local allPlayersArray = Utils.allPlayersArray()
+    for i = 1, #allPlayersArray do
+        if allPlayersArray[i] == player then
+            table.remove(allPlayersArray, i)
+        end
+    end
+    return allPlayersArray
+end
+
 -- Pretty prints a table to the console for debugging purposes
 function Utils.printTable(t)
     local printTable_cache = {}
