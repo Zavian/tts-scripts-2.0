@@ -137,7 +137,7 @@ function Utils.warning(msg, color_to_broadcast)
     if not color_to_broadcast then
         color_to_broadcast = Utils.getSeatedPlayers()[1]
     end
-    Player[color_to_broadcast].broadcast("⚠ " ..msg, CONFIG.palette.yellow.rgb)
+    Player[color_to_broadcast].broadcast("" ..msg, CONFIG.palette.yellow.rgb)
 end
 
 function Utils.info(msg, color_to_broadcast)
@@ -203,6 +203,21 @@ end
 -- Checks if an object with a given GUID still exists in the world
 function objExists(guid)
     return getObjectFromGUID(guid) ~= nil
+end
+
+function Utils.UI_findElementById(uiTable, id)
+    for i, element in ipairs(uiTable) do
+        if element.attributes and element.attributes.id == id then
+            return element
+        end
+        if element.children and #element.children > 0 then
+            local found = Utils.UI_findElementById(element.children, id)
+            if found then
+                return found
+            end
+        end
+    end
+    return nil
 end
 
 -- Finds the first object with a specific tag
@@ -292,6 +307,7 @@ function Utils.setXML(source_xml_obj, destination_obj)
 
     local script = source_xml_obj.getLuaScript()
     local xml = script:sub(script:find("StartXML")+8, script:find("StopXML")-1)
+    xml = xml:gsub("&", "&amp;")
     destination_obj.UI.setXml(xml)
 end
 
@@ -324,6 +340,13 @@ function Utils.split(inputstr, sep)
         table.insert(t, str)
     end
     return t
+end
+
+function Utils.capitalize(s)
+    local result = s:gsub("(%a)(%w*)", function(first, rest)
+        return first:upper() .. rest:lower()
+    end)
+    return result
 end
 
 -- Get Seated Players

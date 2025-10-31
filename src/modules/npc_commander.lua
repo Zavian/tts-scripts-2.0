@@ -401,7 +401,7 @@ function getHP(literal)
 
     return tonumber(hp)
 end
-function setHP(params)
+function setMaxHP(params)
     if params == nil or params.input == "" then return end
     self.editInput({index = 2, value = params.input})
 end
@@ -619,7 +619,7 @@ function parseJson(params)
 
     setName({input = data.name})
     -- setINI(({input = data.ini}))
-    setHP(({input = data.hp}))
+    setMaxHP(({input = data.hp}))
     setAC(({input = data.ac}))
     setMovement(({input = data.mov}))
     setSize({input = data.size})
@@ -641,7 +641,7 @@ function ParseMonsterData(args)
 
     setName({input = data.name})
     -- setINI(({input = data.ini}))
-    setHP(({input = data.hp}))
+    setMaxHP(({input = data.hp}))
     setAC(({input = data.ac}))
     setMovement(({input = data.mov}))
     setSize({input = data.size})

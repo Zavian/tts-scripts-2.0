@@ -4,43 +4,34 @@ require("src.data.config")
 local MovementMeasurement = {}
 
 MovementMeasurement.my_token = nil
-MovementMeasurement.move_token = nil
-MovementMeasurement.measuring = false
+move_token = nil
+MovementMeasurement.measuring = { }
 
 function MovementMeasurement.create(target)
-    log(target)
-    log(target.guid)
-
-    if target == nil then target = self end
-
-    MovementMeasurement.my_token = target
-    MovementMeasurement[MovementMeasurement.my_token.guid] = MovementMeasurement.my_token.guid
-
     target.addTag(OBJECT_TAGS.movement_measurement)
+    MovementMeasurement.measuring[target.guid] = false
     target.addContextMenuItem("Toggle measurement", 
     function(player_color)
-        MovementMeasurement.measuring = not MovementMeasurement.measuring
-        if MovementMeasurement.measuring then
-            MovementMeasurement.createMoveToken(MovementMeasurement.my_token, player_color, true)
+        MovementMeasurement.measuring[target.guid] = not MovementMeasurement.measuring[target.guid]
+        if MovementMeasurement.measuring[target.guid] then
+            MovementMeasurement.createMoveToken(target, player_color, true)
         else 
-            MovementMeasurement.destroyMoveToken()
+            MovementMeasurement.destroyMoveToken(target)
         end
     end)
 end
 
 function MovementMeasurement.onPickUp(obj, player_color)
-    log(MovementMeasurement.my_token.guid, "guid")
-    if MovementMeasurement.measuring then return end
+    if MovementMeasurement.measuring[obj.guid] then return end
     MovementMeasurement.createMoveToken(obj, player_color, true)
 end
 
 function MovementMeasurement.onDrop(obj, player_color)
-    if MovementMeasurement.measuring then return end
-    MovementMeasurement.destroyMoveToken()
+    if MovementMeasurement.measuring[obj.guid] then return end
+    MovementMeasurement.destroyMoveToken(obj, player_color)
 end
 
 function MovementMeasurement.createMoveToken(my_token, player_color, show_only_to_player)
-    -- MovementMeasurement.destroyMoveToken()
     local tokenRot = Player[player_color].getPointerRotation()
     local movetokenparams = {
         image = "http://cloud-3.steamusercontent.com/ugc/1021697601906583980/C63D67188FAD8B02F1B58E17C7B1DB304B7ECBE3/",
@@ -78,15 +69,18 @@ function MovementMeasurement.createMoveToken(my_token, player_color, show_only_t
         sound = false
     }
 
-    MovementMeasurement.move_token = spawnObject(spawnparams)
-    MovementMeasurement.move_token.setLock(true)
-    MovementMeasurement.move_token.setCustomObject(movetokenparams)
-    my_token.setVar("myMoveToken", MovementMeasurement.move_token)
-    MovementMeasurement.move_token.setVar("measuredObject", my_token)
-    MovementMeasurement.move_token.setVar("myPlayer", player_color)
-    MovementMeasurement.move_token.setVar("className", "MeasurementToken_Move")
+    local move_token = spawnObject(spawnparams)
+    my_token.setVar("moveToken", move_token)
+
+
+    move_token.setLock(true)
+    move_token.setCustomObject(movetokenparams)
+    move_token.setVar("measuredObject", my_token)
+    move_token.setVar("myPlayer", player_color)
+    move_token.setVar("className", "MeasurementToken_Move")
+
     if show_only_to_player then
-        MovementMeasurement.move_token.setInvisibleTo(utils.hideFromAllButPlayer(player_color))
+        move_token.setInvisibleTo(utils.hideFromAllButPlayer(player_color))
     end
     local moveButtonParams = {
         click_function = "onLoad",
@@ -97,7 +91,7 @@ function MovementMeasurement.createMoveToken(my_token, player_color, show_only_t
         height = 0,
         font_size = 600
     }
-    MovementMeasurement.move_token.createButton(moveButtonParams)
+    move_token.createButton(moveButtonParams)
 
     local luaScript = [[
     local gridSize = Grid.sizeX or 2
@@ -222,13 +216,12 @@ function generateCirclePoints(center, radius)
     return points
 end]]
         
-    MovementMeasurement.move_token.setLuaScript(luaScript)
+    move_token.setLuaScript(luaScript)
 end
 
-function MovementMeasurement.destroyMoveToken()
-    if string.match(tostring(myMoveToken), "Custom") then
-        MovementMeasurement.move_token.destroy()
-    end
+function MovementMeasurement.destroyMoveToken(obj, player_color)
+    local move_token = obj.getVar("moveToken")
+    move_token.destroy()
 end
 
 return MovementMeasurement

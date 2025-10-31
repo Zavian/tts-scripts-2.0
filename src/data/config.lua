@@ -68,7 +68,6 @@ CONFIG = {
         "Epic Die"
     },
     textColor = "#f0f0f0ff",
-    initiative_mat = "",
     palette = {
         navy = {
             hex = "#001f3f",

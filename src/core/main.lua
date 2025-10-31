@@ -76,19 +76,17 @@ end
 
 function onObjectPickUp(player_color, pick_obj)
     if pick_obj.hasTag(OBJECT_TAGS.movement_measurement) then
-        log(pick_obj, "pick_obj")
-        log(pick_obj.guid, "pick_obj.guid")
-        if movement_measurement.my_token == nil then
+        if movement_measurement.measuring[pick_obj.guid] == nil then
             movement_measurement.create(pick_obj)
             table.insert(COMPONENTS.movementObjects, pick_obj)
-        end        
+        end
         movement_measurement.onPickUp(pick_obj, player_color)
     end
 end
 
 function onObjectDrop(player_color, drop_obj)
     if drop_obj.hasTag(OBJECT_TAGS.movement_measurement) then
-        movement_measurement.onDrop(drop)
+        movement_measurement.onDrop(drop_obj)
     end
 end
 

@@ -142,10 +142,11 @@ function changeHP(amount)
     -- self.UI.setValue("hp", barString("□", "■", data.hp, data.maxHp))
     self.UI.setValue("smallhp", barString("□", "■", data.hp, data.maxHp))
 
-    event_broadcast({
-        eventName = events.EVENT_NAMES.monster_hp_update,
-        args = {hp = data.hp, obj_guid = self.getGUID()}
-    })
+
+    event.broadcast(
+        event.EVENT_NAMES.monster_hp_update, 
+        {hp = data.hp, obj_guid = self.getGUID()}
+    )
 
     updateSave()
 end
@@ -173,10 +174,10 @@ function changeStress(amount)
     -- self.UI.setValue("stress", barString("□", "■", data.stress, data.maxStress))
     self.UI.setValue("smallstress", barString("□", "■", data.stress, data.maxStress))
 
-    event_broadcast({
-        eventName = event.EVENT_NAMESmonster_stress_update,
-        args = {stress = data.stress, obj_guid = self.getGUID()}
-    })
+    event.broadcast(
+        event.EVENT_NAMES.monster_stress_update,
+        {stress = data.stress, obj_guid = self.getGUID()}
+    )
 
     updateSave()
 end
@@ -256,6 +257,8 @@ function onload(saved_data)
         self.setTags({OBJECT_TAGS.boss_token})
     end
     setupDMUI() -- Sets up UI, context menus, etc.
+
+    self.addTag(OBJECT_TAGS.movement_measurement)
 
     -- This block ONLY runs for the final object immediately after creation.
     if (data.post_reload_action) then
