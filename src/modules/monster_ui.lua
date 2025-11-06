@@ -102,7 +102,7 @@ function decreaseHP()
     callForAllSelected("changeHP", -1)
 end
 
-function setMaxHP(amount)
+function Injector_setMaxHP(amount)
     print("setMaxHP function")
     print("amount:", amount)
     if (data.hp == data.maxHp) then

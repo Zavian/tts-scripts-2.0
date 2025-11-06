@@ -147,6 +147,17 @@ function Utils.info(msg, color_to_broadcast)
     Player[color_to_broadcast].broadcast("🛈 " ..msg, CONFIG.palette.aqua.rgb)
 end
 
+function Utils.pingObject(player_color, object_guid)
+    local obj = getObjectFromGUID(object_guid)
+    if not obj or obj.isDestroyed() then
+        return
+    end
+
+    local obj_pos = obj.getPosition()
+    Player[player_color].pingTable(obj_pos)
+    Utils.HighlightObject(obj, player_color,5)
+end
+
 function Utils.hasTagsFromList(obj, tagList)
     if not obj or obj.isDestroyed() then return false end
     local returner = false

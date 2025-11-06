@@ -401,7 +401,7 @@ function getHP(literal)
 
     return tonumber(hp)
 end
-function setMaxHP(params)
+function Injector_setMaxHP(params)
     if params == nil or params.input == "" then return end
     self.editInput({index = 2, value = params.input})
 end
@@ -579,35 +579,6 @@ function getNumberToCreate()
     end
 end
 
--- boss size -----------------------------------------
-function getBossSize()
-    local input = self.getInputs()[8]
-    if input.value == "" or input.value == nil then
-        return 1.0
-    end
-    return input.value
-end
-
-function setBossSize(params)
-    self.editInput({index = 7, value = params.input})
-end
-
--- jsonImport ----------------------------------------
-function getJsonImport()
-    local input = self.getInputs()[7]
-    return input.value
-end
-
-function lockInputs(toggle)
-    for i = 1, #self.getButtons() do
-        self.editButton({index = i - 1, enabled = toggle})
-    end
-
-    for i = 1, #self.getInputs() do
-        self.editInput({index = i - 1, enabled = toggle})
-    end
-end
-
 -- jsonImport ----------------------------------------
 function getJsonImport()
     local input = self.getInputs()[7]
@@ -619,7 +590,7 @@ function parseJson(params)
 
     setName({input = data.name})
     -- setINI(({input = data.ini}))
-    setMaxHP(({input = data.hp}))
+    Injector_setMaxHP(({input = data.hp}))
     setAC(({input = data.ac}))
     setMovement(({input = data.mov}))
     setSize({input = data.size})
@@ -632,6 +603,16 @@ function parseJson(params)
     end
 end
 
+function lockInputs(toggle)
+    for i = 1, #self.getButtons() do
+        self.editButton({index = i - 1, enabled = toggle})
+    end
+
+    for i = 1, #self.getInputs() do
+        self.editInput({index = i - 1, enabled = toggle})
+    end
+end
+
 --- @param args MonsterData
 function ParseMonsterData(args) 
     debug("Event: " .. events.Event.parse_monster_data)
@@ -641,7 +622,7 @@ function ParseMonsterData(args)
 
     setName({input = data.name})
     -- setINI(({input = data.ini}))
-    setMaxHP(({input = data.hp}))
+    Injector_setMaxHP(({input = data.hp}))
     setAC(({input = data.ac}))
     setMovement(({input = data.mov}))
     setSize({input = data.size})

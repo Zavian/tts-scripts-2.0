@@ -85,6 +85,9 @@ function onObjectPickUp(player_color, pick_obj)
 end
 
 function onObjectDrop(player_color, drop_obj)
+    drop_obj.setVar("last_held_by", player_color)
+    _debug("Object with guid " .. drop_obj.guid .. " has variable last_held_by set to " .. player_color)
+
     if drop_obj.hasTag(OBJECT_TAGS.movement_measurement) then
         movement_measurement.onDrop(drop_obj)
     end
